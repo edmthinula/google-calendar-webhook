@@ -8,6 +8,9 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.REDIRECT_URI
 );
 
+// Access scopes for two non-Sign-In scopes: Google Calendar
+const scopes = ['https://www.googleapis.com/auth/calendar.readonly']
+
 /**
  * Generates the Google Login URL.
  * We request 'offline' access and force 'consent' to ensure Google 
@@ -17,7 +20,7 @@ function getAuthUrl() {
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent', 
-    scope: ['https://www.googleapis.com/auth/calendar.readonly'],
+    scope: scopes,
   });
 }
 
