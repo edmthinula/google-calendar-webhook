@@ -58,11 +58,46 @@ async function handleWebhook (req, res) {
     const changes = response.data.items
 
     if (changes && changes.length > 0) {
-      console.log(`\n--- NEW CHANGES DETECTED (${changes.length}) ---`)
+      console.log(`\n--- 🔔 NEW CHANGES DETECTED (${changes.length}) ---`)
+
       changes.forEach(event => {
-        console.log(
-          `Event: ${event.summary || 'Deleted Event'} | Status: ${event.status}`
-        )
+        // 1. Handle Deleted Events First
+        if (event.status === 'cancelled') {
+          console.log(`\n❌ EVENT DELETED`)
+          console.log(`   Event ID: ${event.id}`)
+          return // Stop processing this specific event, as it has no other data
+        }
+
+        // 2. Extract Data Safely
+        const title = event.summary || '(No Title)'
+        const status = event.status || 'Unknown'
+        const location = event.location || '(No location specified)'
+        const link = event.htmlLink || 'No link available'
+
+        // Clean up the description (strip HTML or limit length if needed)
+        const description = event.description
+          ? event.description.replace(/(<([^>]+)>)/gi, '').substring(0, 100) +
+            '...'
+          : '(No description)'
+
+        // 3. Handle the All-Day vs Timed Event quirk
+        const startTime =
+          event.start?.dateTime || event.start?.date || 'Unknown Start'
+        const endTime = event.end?.dateTime || event.end?.date || 'Unknown End'
+
+        // 4. Log it beautifully
+        console.log(`\n📅 EVENT UPDATED / CREATED`)
+        console.log(`   Title:       ${title}`)
+        console.log(`   Status:      ${status}`)
+        console.log(`   Start:       ${startTime}`)
+        console.log(`   End:         ${endTime}`)
+        console.log(`   Location:    ${location}`)
+        console.log(`   Description: ${description}`)
+        console.log(`   Event Link:  ${link}`)
+        console.log(`   Event ID:    ${event.id}`)
+
+        // TIP: If you literally want to see the RAW JSON payload from Google:
+        console.log("   Raw Data:", JSON.stringify(event, null, 2));
       })
     }
 

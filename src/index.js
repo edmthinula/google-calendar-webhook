@@ -6,10 +6,10 @@ const fs = require('fs').promises
 const path = require('path')
 
 // Import our custom modules
-const { oauth2Client, getAuthUrl, getTokens } = require('./auth')
+const { oauth2Client, getAuthUrl, getTokens, loadSavedTokens } = require('./auth');
 const { fetchNewSyncToken } = require('./sync')
 const { handleWebhook } = require('./webhook')
-const { saveChannelData, isWatchActive } = require('./channel')
+const { saveChannelData, isWatchActive, getChannelData } = require('./channel')
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -74,6 +74,12 @@ app.get('/oauth2callback', async (req, res) => {
 // 3. THE WEBHOOK RECEIVER
 // Pass the incoming request to our webhook controller
 app.post('/webhook', handleWebhook)
+
+loadSavedTokens().then((loaded) => {
+  if (!loaded) {
+    console.log('⚠️ No saved credentials found. You MUST visit http://localhost:3000 to authenticate first.');
+  }
+});
 
 app.listen(PORT, () => {
   console.log(
