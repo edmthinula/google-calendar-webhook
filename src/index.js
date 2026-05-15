@@ -2,6 +2,8 @@ require('dotenv').config()
 const express = require('express')
 const { v4: uuidv4 } = require('uuid')
 const { google } = require('googleapis')
+const fs = require('fs').promises
+const path = require('path')
 
 // Import our custom modules
 const { oauth2Client, getAuthUrl, getTokens } = require('./auth')
@@ -77,4 +79,63 @@ app.listen(PORT, () => {
   console.log(
     `🚀 Server running! Go to http://localhost:${PORT} to authenticate.`
   )
+})
+
+// 4. STOP A SPECIFIC WATCH (Using Path Parameters)
+// Example usage: http://localhost:3000/stop/YOUR_CHANNEL_ID/YOUR_RESOURCE_ID
+app.get('/stop/:channelId/:resourceId', async (req, res) => {
+  const { channelId, resourceId } = req.params
+
+  try {
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
+
+    await calendar.channels.stop({
+      requestBody: {
+        id: channelId,
+        resourceId: resourceId
+      }
+    })
+
+    console.log(`🛑 Successfully stopped watch channel: ${channelId}`)
+    res.send(
+      `<h1>Watch Stopped</h1><p>Successfully stopped channel: ${channelId}</p>`
+    )
+  } catch (err) {
+    console.error('Error stopping watch:', err.message)
+    res.status(500).send(`Failed to stop watch: ${err.message}`)
+  }
+})
+
+// 5. STOP THE CURRENTLY ACTIVE WATCH (Reads from your channel.json)
+// Example usage: http://localhost:3000/stop-active
+app.get('/stop-active', async (req, res) => {
+  try {
+    // Read the current channel data
+    const activeChannel = await getChannelData()
+
+    if (!activeChannel) {
+      return res.send('No active watch found on disk to stop.')
+    }
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
+
+    await calendar.channels.stop({
+      requestBody: {
+        id: activeChannel.channelId,
+        resourceId: activeChannel.resourceId
+      }
+    })
+
+    // Delete the local file so the server knows it's gone
+    const CHANNEL_PATH = path.join(__dirname, '../data/channel.json')
+    await fs.unlink(CHANNEL_PATH).catch(() => console.log('No file to delete.'))
+
+    console.log(`🛑 Successfully stopped ACTIVE watch and cleared local data.`)
+    res.send(
+      '<h1>Active Watch Stopped</h1><p>The channel has been closed and local data cleared.</p>'
+    )
+  } catch (err) {
+    console.error('Error stopping active watch:', err.message)
+    res.status(500).send(`Failed to stop active watch: ${err.message}`)
+  }
 })
