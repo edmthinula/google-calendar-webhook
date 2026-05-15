@@ -22,34 +22,51 @@ app.get('/', (req, res) => {
 app.get('/oauth2callback', async (req, res) => {
   const { code } = req.query
 
-  const active = await isWatchActive()
+  try {
+    // 1. Exchange the code for tokens and set them in our auth client (CRUCIAL)
+    await getTokens(code)
+    console.log('✅ Authenticated successfully!')
 
-  if (!active) {
-    console.log('No active watch found. Creating a new one...')
-    const newChannelId = uuidv4()
+    // 2. Initialize the Google Calendar API client (Fixes the ReferenceError)
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
 
-    const watchResponse = await calendar.events.watch({
-      calendarId: 'primary',
-      requestBody: {
-        id: newChannelId,
-        type: 'web_hook',
-        address: process.env.WEBHOOK_URL
-      }
-    })
+    // 3. Grab the initial bookmark before starting the watch
+    await fetchNewSyncToken(calendar)
 
-    // Save the crucial details Google gives back so we don't create duplicates later
-    await saveChannelData(
-      newChannelId,
-      watchResponse.data.resourceId,
-      watchResponse.data.expiration
-    )
+    // 4. Check if we already have an active watch
+    const active = await isWatchActive()
 
-    console.log('✅ Webhook Watch created successfully!')
-  } else {
-    console.log('⏩ Skipped creating a new watch to prevent duplicates.')
+    if (!active) {
+      console.log('No active watch found. Creating a new one...')
+      const newChannelId = uuidv4()
+
+      const watchResponse = await calendar.events.watch({
+        calendarId: 'primary',
+        requestBody: {
+          id: newChannelId,
+          type: 'web_hook',
+          address: process.env.WEBHOOK_URL
+        }
+      })
+
+      // Save the crucial details Google gives back so we don't create duplicates later
+      await saveChannelData(
+        newChannelId,
+        watchResponse.data.resourceId,
+        watchResponse.data.expiration
+      )
+
+      console.log('✅ Webhook Watch created successfully!')
+    } else {
+      console.log('⏩ Skipped creating a new watch to prevent duplicates.')
+    }
+
+    res.send('<h1>Setup Complete!</h1><p>Check your console.</p>')
+  } catch (err) {
+    // Wrapping this in a try/catch prevents the server from crashing if Google throws an error!
+    console.error('Error during setup:', err)
+    res.status(500).send(`Setup failed: ${err.message}`)
   }
-
-  res.send('<h1>Setup Complete!</h1><p>Check your console.</p>')
 })
 
 // 3. THE WEBHOOK RECEIVER
