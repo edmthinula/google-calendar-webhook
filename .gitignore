@@ -80,6 +80,7 @@ web_modules/
 .env.local
 
 data/token.json
+data/channel.json
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
