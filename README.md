@@ -1,73 +1,60 @@
+# Google Calendar Webhook Boilerplate
 
-# Google Calendar Webhook Boilerplate (Node.js)
-
-A production-ready, highly secure, modular boilerplate for setting up Google Calendar Webhooks (Push Notifications) built natively with modern ES Modules (ESM).
-
-If you are trying to build an app that reacts instantly when a Google Calendar event is created, updated, or deleted—without polling the API constantly, dealing with silent data loss on multi-page updates, or fetching duplicate events—this repository is for you.
-
----
+A production-ready, modular Node.js boilerplate for setting up real-time Google Calendar Webhooks (Push Notifications) without polling. It features robust token management, incremental sync logic, a built-in "ghost filter" to ignore expired channels, and self-healing token recovery.
 
 ## ✨ Features
 
-- **Modern ES Modules Architecture:** Built natively with modern JavaScript features (import/export) and clean separation of concerns (auth, sync, webhook, channel, server).
-- **Robust Multi-Page Incremental Sync:** Uses a complete page traversal engine (pageToken loop) to ensure large batches of concurrent updates are completely processed without pagination data loss.
-- **Cryptographic Automated Setup:** Built-in initialization scripts auto-generate zero-configuration local .env setups layered with high-entropy secure authorization strings.
-- **Hardened Administration Routes:** Teardown mechanisms use state-mutation POST vectors strictly guarded by an express authorization token layer to stop unwanted crawler executions or accidental browser-pre-fetches.
-- **Credential & Session Persistence:** Securely manages long-lived Google OAuth2 configurations and token refreshes to an encrypted local file state.
-- **Ghost Watch Filtering:** Validates incoming webhook headers against active state hashes to immediately ignore duplicate pings from expired channels.
-- **Auto-Recovery Framework:** Gracefully traps and self-heals from 410 Gone (Expired Sync Token) exceptions by executing full validation sweeps seamlessly.
-
+- **Reliable Incremental Sync:** Uses pagination loops (`pageToken`) to process large batches of concurrent updates without data loss.
+- **Auto-Refresh Token Management:** Automatically saves and merges fresh OAuth2 refresh tokens to local storage to maintain a continuous runtime state.
+- **Ghost Watch Filtering:** Validates incoming webhook headers against the active channel state to safely drop duplicate pings from expired subscriptions.
+- **Auto-Recovery Lifecycle:** Gracefully catches `410 Gone` (expired sync token) errors and automatically initiates an instant recovery sweep to re-sync bookmarks.
+- **Hardened Admin Routes:** Features administrative endpoints protected by a custom `x-admin-token` header to safely terminate active watch channels without risk of public abuse.
 
 ## 📂 Project Structure
 
 ```plaintext
 google-calendar-webhook/
 ├── data/
-│   └── .gitkeep          # Directory where credentials.json and channel.json live
+│   └── .gitkeep          # Directory for local credentials.json and channel.json
 ├── scripts/
-│   └── init-env.js       # Automated environment constructor & token generator
+│   └── init-env.js       # Auto-generates local configuration layer
 ├── src/
-│   ├── index.js          # Main entry file. Initializes server and guarded routings
-│   ├── auth.js           # Validates requirements, handles OAuth2 and token storage
-│   ├── sync.js           # Manages sync tokens, bookmarks, and 410 error resolution
-│   ├── channel.js        # Tracks active resource IDs to discard ghost payloads
-│   └── webhook.js        # Core processor loop. Handles paginated change analysis
-├── .env.example          # Blueprint definitions for required environment parameters
-├── .gitignore            # Keeps variables and temporary file caches off GitHub
-├── package.json          # Node dependencies, definitions, and execution hooks
+│   ├── index.js          # Server entry point and protected endpoint routes
+│   ├── auth.js           # OAuth2 client instance, login flows, and token persistence
+│   ├── sync.js           # Handles sync tokens, bookmarks, and 410 remediation
+│   ├── channel.js        # Tracks active resource state to filter out duplicate pings
+│   └── webhook.js        # Event processing loop with paginated change analysis
+├── .env.example          # Blueprint definitions for your environmental variables
+├── package.json          # Core project dependencies and execution scripts
 └── README.md
 ```
 
 ## 🛠️ Prerequisites
 
-Before you start, you will need:
+- **Node.js:** v20.0.0+ recommended.
+- **A Google Cloud Platform (GCP) Account** with an active project.
+- **A Local Tunneling Tool:** (e.g., Ngrok, Localtunnel, or DevTunnels) to expose your local port via public HTTPS for Google's webhook payloads.
 
-- Node.js (v20.0.0+ recommended) installed on your machine.
-- A Google Cloud Platform (GCP) account.
-- A local tunneling tool like Ngrok or DevTunnels (Google needs a public HTTPS URL to send the webhook to).
+## 🚀 Setup & Configuration
 
+### 1. Google Cloud Platform Configuration
 
-## 🚀 Setup Guide
-
-### 1. Google Cloud Setup
-
-1. Go to the Google Cloud Console.
-2. Create a new Project.
-3. Navigate to **APIs & Services > Library**, search for the Google Calendar API, and enable it.
-4. Go to **APIs & Services > OAuth consent screen**:
-  - Choose External (or Internal if you have a Google Workspace organization).
-  - Complete the mandatory application identification fields.
-  - Add the required scope: `https://www.googleapis.com/auth/calendar.readonly`.
-  - Add your login email as a Test User (crucial for local testing status).
-5. Navigate to **APIs & Services > Credentials**:
-  - Click **Create Credentials > OAuth client ID**.
-  - Set Application Type to **Web application**.
-  - Under Authorized redirect URIs, add exactly: `http://localhost:3000/oauth2callback`.
-  - Click Create and copy your Client ID and Client Secret.
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2. Select your project, visit the API Library, search for the **Google Calendar API**, and enable it.
+3. Go to **APIs & Services > OAuth consent screen**:
+   - Select **External** user type.
+   - Fill out the required configuration settings.
+   - Add the following scope: `https://www.googleapis.com/auth/calendar.readonly`.
+   - Add your own Google Email under **Test Users** (required for sandbox testing).
+4. Go to **APIs & Services > Credentials**:
+   - Click **Create Credentials > OAuth client ID**.
+   - Select **Web application** as the type.
+   - Add exactly `http://localhost:3000/oauth2callback` into the **Authorized redirect URIs** block.
+   - Save the configuration and securely copy your **Client ID** and **Client Secret**.
 
 ### 2. Local Installation
 
-Clone the repository and download project dependencies:
+Clone the repository and install the development dependencies:
 
 ```bash
 git clone https://github.com/edmthinula/google-calendar-webhook.git
@@ -75,95 +62,85 @@ cd google-calendar-webhook
 npm install
 ```
 
-### 3. Automated Configuration Initialization
+### 3. Initialize Environment Configurations
 
-Run the automated setup hook to safely spin up your runtime variables configuration. This script copies the system blueprints and injects a unique, cryptographically random ADMIN_TOKEN into your .env layout:
+Generate your local `.env` setup using the built-in initializer script:
 
 ```bash
 npm run setup
 ```
 
-Open the newly created `.env` file in the root of your project and paste your Google Credentials along with your public HTTPS server tunnel address:
+Open the generated `.env` file and populate your Google Developer values along with your public HTTPS tunnel forwarding target:
 
-```env
+```plaintext
 CLIENT_ID=your_google_client_id_here
 CLIENT_SECRET=your_google_client_secret_here
 REDIRECT_URI=http://localhost:3000/oauth2callback
 WEBHOOK_URL=https://your-public-tunnel-url.com/webhook
 PORT=3000
-DEBUG_RAW_EVENTS = false 
+DEBUG_RAW_EVENTS=false
 
-# Generated automatically via npm run setup
+# Generated automatically during setup script execution
 ADMIN_TOKEN=a7c8e9b462...
 ```
 
-> **Note:** Your `WEBHOOK_URL` must point to your active HTTPS tunnel forwarding straight to your local application port (3000) and must explicitly terminate with the `/webhook` path routing.
+> **Important:** The `WEBHOOK_URL` must point directly to your live public tunnel HTTPS address and explicitly terminate with the `/webhook` path.
 
+## 💻 Running the Application
 
-## 💻 Usage
+### 1. Fire up the Server
 
-### 1. Launch the Server
-
-Boot up the server interface locally using Node's hot-reload watch feature:
+Launch the local application inside development tracking mode:
 
 ```bash
 npm run dev
 ```
 
-### 2. Authenticate & Start the Watch
+### 2. Complete the OAuth Authentication Dance
 
-Open your web browser and target your root instance address: [http://localhost:3000](http://localhost:3000).
+1. Open your browser and navigate to the base route: `http://localhost:3000`.
+2. Sign in with your registered Google Test User account and grant permissions. Upon redirected success, the core engine will automatically complete the following operations under the hood:
+   - Save authorization secrets directly to your server environment.
+   - Initialize your baseline calendar sync state bookmarks.
+   - Spin up an operational webhook stream directly targeting your exposed public URL.
 
-Authenticate with your Google user profile and grant the required calendar visibility privileges. Once completed, your browser will register a completion confirmation page, and the backend engine will automatically:
+### 3. Webhook Stream Inspection
 
-- Securely store your operational credentials onto local storage.
-- Construct the primary database sync markers.
-- Provision a clean push channel interaction hook right with Google Cloud registries.
-
-### 3. Validate Webhook Streams
-
-Open your primary Google Calendar layout, modify/create a target event milestone, and look back at your application terminal log space. You will see a structural representation detailing the modification payloads:
+Modify, delete, or create any entry inside your actual Google Calendar UI. Your server terminal will log the parsed event changes in real-time:
 
 ```plaintext
 --- 🔔 PROCESSING PAGE OF CHANGES (1 items) ---
 
 📅 EVENT UPDATED / CREATED
-  Title:       Sync Alignment and Planning
-  Status:      confirmed
-  Start:       2026-05-20T10:00:00-07:00
-  End:         2026-05-20T10:30:00-07:00
-  Location:    Virtual Workspace Bridge
-  Description: Weekly technical scope definition...
-  Event Link:  https://www.google.com/calendar/event?eid=...
-  Event ID:    6abc123xyz
+   Title:       Sync Alignment and Planning
+   Status:      confirmed
+   Start:       2026-05-20T10:00:00-07:00
+   End:         2026-05-20T10:30:00-07:00
+   Location:    Virtual Workspace Bridge
+   Description: Weekly technical scope definition...
+   Event ID:    6abc123xyz
 
 🎉 Successfully processed 1 total events. Sync token advanced.
 ```
 
-## 🔒 Managing Watches (Hardened Endpoints)
+## 🔒 Administrative Endpoint Controls
 
-Google Calendar communication hooks operate without an administration telemetry dashboard. To protect your platform from malicious public channel destruction or crawl loops, teardown actions must be handled via authenticated POST request strategies layered with your internal security string:
+Because active Google Calendar push hooks don't have a visual UI dashboard, managing them can be a hassle. To stop random crawlers from executing destructive actions, the cleanup endpoints are configured as POST actions requiring your local `ADMIN_TOKEN`:
 
-### Stop the Currently Active Channel
+### Teardown the Currently Active Watch Channel
 
-Closes the running subscription channel and wipes out your local tracking state:
+Gracefully unsubscribes from Google pushes and updates the local storage records:
 
 ```bash
 curl -X POST http://localhost:3000/stop-active \
   -H "x-admin-token: YOUR_SECRET_ADMIN_TOKEN_HERE"
 ```
 
-### Stop a Specific Channel Manually
+### Forcefully Clear a Legacy or Orphaned Channel
 
-Used to forcefully wipe out a structural legacy or orphaned resource subscription tracking string using direct path parameters:
+Wipes out an explicitly named channel subscription using precise parameters:
 
 ```bash
 curl -X POST http://localhost:3000/stop/YOUR_CHANNEL_ID/YOUR_RESOURCE_ID \
   -H "x-admin-token: YOUR_SECRET_ADMIN_TOKEN_HERE"
 ```
-
-## 📚 Official Documentation & References
-
-- [Google Auth Library for Node.js](https://github.com/googleapis/google-auth-library-nodejs)
-- [Synchronize Calendar Events Reliably via Google Cloud](https://developers.google.com/calendar/api/guides/sync)
-- [Receiving Calendar Push Notifications (Webhooks)](https://developers.google.com/calendar/api/guides/push)
