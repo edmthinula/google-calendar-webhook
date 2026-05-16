@@ -14,16 +14,7 @@ const envExamplePath = path.join(rootDir, '.env.example')
 
 async function initializeEnvironment() {
   try {
-    // 1. Guard check: If a .env file already exists, do not overwrite it
-    try {
-      await fs.access(envPath)
-      console.log('ℹ️  An existing .env file was found. Skipping token generation to protect existing configurations.')
-      return
-    } catch {
-      // File doesn't exist, safely proceed to create it
-    }
-
-    // 2. Read the blueprint from .env.example
+    // 1. Read the blueprint from .env.example first
     let envContent = ''
     try {
       envContent = await fs.readFile(envExamplePath, 'utf8')
@@ -32,19 +23,33 @@ async function initializeEnvironment() {
       process.exit(1)
     }
 
-    // 3. Generate a cryptographically secure 32-byte cryptographic token
+    // 2. Generate a cryptographically secure 32-byte cryptographic token
     const secureToken = crypto.randomBytes(32).toString('hex')
 
-    // 4. Swap the placeholder value or append the token directly
+    // 3. Swap the placeholder value or append the token directly
     if (envContent.includes('ADMIN_TOKEN=')) {
       envContent = envContent.replace(/ADMIN_TOKEN=.*/, `ADMIN_TOKEN=${secureToken}`)
     } else {
       envContent += `\n\n# Security Token for destroying webhook channels\nADMIN_TOKEN=${secureToken}\n`
     }
 
-    // 5. Write the final customized file onto disk as operational .env
-    await fs.writeFile(envPath, envContent, 'utf8')
-    console.log('✅ Success: Generated a secure local `.env` file with a unique ADMIN_TOKEN.')
+    // 4. ATOMIC WRITE: Attempt to create the file exclusively ('wx') with Owner-Only permissions (0o600)
+    try {
+      await fs.writeFile(envPath, envContent, { 
+        encoding: 'utf8', 
+        flag: 'wx',    // Fails instantly if the file already exists (Fixes TOCTOU)
+        mode: 0o600    // Owner read/write only (Fixes world-readable issue)
+      })
+      console.log('✅ Success: Generated a secure local `.env` file with a unique ADMIN_TOKEN.')
+    } catch (writeErr) {
+      // If the error code is EEXIST, the file was already there. We safely skip.
+      if (writeErr.code === 'EEXIST') {
+        console.log('ℹ️  An existing .env file was found. Skipping token generation to protect existing configurations.')
+        return
+      }
+      // If it's a different error (e.g., permission denied), throw it up the chain
+      throw writeErr
+    }
 
   } catch (error) {
     console.error('❌ Failed to initialize environment configurations:', error.message)

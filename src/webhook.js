@@ -18,11 +18,12 @@ async function handleWebhook (req, res) {
   // 3. --- THE GHOST FILTER ---
   const activeChannel = await getChannelData()
 
-  if (activeChannel) {
-    if (incomingChannelId !== activeChannel.channelId) {
-      console.log(`👻 Ignored ping from ghost watch (ID: ${incomingChannelId})`)
-      return
-    }
+  // HARDENED: Reject if we have no active channel, OR if the IDs don't match
+  if (!activeChannel || incomingChannelId !== activeChannel.channelId) {
+    console.log(
+      `👻 Ignored unauthorized or ghost ping (Incoming ID: ${incomingChannelId})`
+    )
+    return
   }
 
   // 4. Handle the initial handshake
@@ -37,7 +38,9 @@ async function handleWebhook (req, res) {
     const syncToken = await getSavedSyncToken()
 
     if (!syncToken) {
-      console.warn('Webhook received, but no sync token found on disk. Ignoring.')
+      console.warn(
+        'Webhook received, but no sync token found on disk. Ignoring.'
+      )
       return
     }
 
@@ -57,14 +60,16 @@ async function handleWebhook (req, res) {
 
       if (changes && changes.length > 0) {
         totalChangesDetected += changes.length
-        console.log(`\n--- 🔔 PROCESSING PAGE OF CHANGES (${changes.length} items) ---`)
+        console.log(
+          `\n--- 🔔 PROCESSING PAGE OF CHANGES (${changes.length} items) ---`
+        )
 
         changes.forEach(event => {
           // 1. Handle Deleted Events First
           if (event.status === 'cancelled') {
             console.log(`\n❌ EVENT DELETED`)
             console.log(`   Event ID: ${event.id}`)
-            return 
+            return
           }
 
           // 2. Extract Data Safely
@@ -77,14 +82,19 @@ async function handleWebhook (req, res) {
           let description
           if (event.description) {
             const stripped = event.description.replace(/(<([^>]+)>)/gi, '')
-            description = stripped.length > 100 ? stripped.substring(0, 100) + '...' : stripped
+            description =
+              stripped.length > 100
+                ? stripped.substring(0, 100) + '...'
+                : stripped
           } else {
             description = '(No description)'
           }
 
           // 3. Handle All-Day vs Timed Event quirk
-          const startTime = event.start?.dateTime || event.start?.date || 'Unknown Start'
-          const endTime = event.end?.dateTime || event.end?.date || 'Unknown End'
+          const startTime =
+            event.start?.dateTime || event.start?.date || 'Unknown Start'
+          const endTime =
+            event.end?.dateTime || event.end?.date || 'Unknown End'
 
           // 4. Log beautifully
           console.log(`\n📅 EVENT UPDATED / CREATED`)
@@ -110,15 +120,15 @@ async function handleWebhook (req, res) {
       if (response.data.nextSyncToken) {
         nextSyncToken = response.data.nextSyncToken
       }
-
     } while (pageToken) // Keep spinning if there are more pages
 
     // 6. Permanently advance the sync bookmark ONLY after evaluating all pages
     if (nextSyncToken) {
       await saveSyncToken(nextSyncToken)
-      console.log(`\n🎉 Successfully processed ${totalChangesDetected} total events. Sync token advanced.`)
+      console.log(
+        `\n🎉 Successfully processed ${totalChangesDetected} total events. Sync token advanced.`
+      )
     }
-
   } catch (err) {
     if (err.code === 410) {
       console.log('⚠️ Sync token expired (410 Gone). Initiating recovery...')
