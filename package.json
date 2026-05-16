@@ -5,8 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "setup": "node scripts/init-env.js",
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "nodemon --watch src src/index.js"
   },
   "repository": {
     "type": "git",
@@ -15,12 +16,21 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "bugs": {
     "url": "https://github.com/edmthinula/google-calendar-webhook/issues"
   },
   "homepage": "https://github.com/edmthinula/google-calendar-webhook#readme",
   "dependencies": {
-    "express": "^5.2.1"
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "googleapis": "^171.4.0",
+    "uuid": "^14.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }
