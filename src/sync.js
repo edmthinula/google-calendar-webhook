@@ -1,7 +1,9 @@
-const fs = require('fs').promises
-const path = require('path')
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url'
 
-// Determine where to save the token file
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const TOKEN_PATH = path.join(__dirname, '../data/token.json')
 
 /**
@@ -10,6 +12,7 @@ const TOKEN_PATH = path.join(__dirname, '../data/token.json')
  */
 async function saveSyncToken (token) {
   try {
+    await fs.mkdir(path.dirname(TOKEN_PATH), { recursive: true });
     const data = JSON.stringify({ syncToken: token })
     await fs.writeFile(TOKEN_PATH, data, 'utf8')
     console.log('Sync token saved to file successfully.')
@@ -68,7 +71,7 @@ async function fetchNewSyncToken (calendar) {
   return syncToken
 }
 
-module.exports = {
+export {
   saveSyncToken,
   getSavedSyncToken,
   fetchNewSyncToken

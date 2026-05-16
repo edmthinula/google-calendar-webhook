@@ -91,7 +91,7 @@ Run the application:
 
 ```bash
 node src/index.js
-# Or use npm run dev if you have nodemon configured
+# Or use npm run dev (uses Node's built-in --watch mode)
 ```
 
 ### 2. Authenticate & Start the Watch

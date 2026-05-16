@@ -1,6 +1,8 @@
-const fs = require('fs').promises
-const path = require('path')
-
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url'
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const CHANNEL_PATH = path.join(__dirname, '../data/channel.json')
 
 /**
@@ -8,6 +10,7 @@ const CHANNEL_PATH = path.join(__dirname, '../data/channel.json')
  */
 async function saveChannelData (channelId, resourceId, expiration) {
   try {
+    await fs.mkdir(path.dirname(CHANNEL_PATH), { recursive: true });
     const data = JSON.stringify({ channelId, resourceId, expiration })
     await fs.writeFile(CHANNEL_PATH, data, 'utf8')
     console.log('Channel data saved to disk.')
@@ -52,7 +55,7 @@ async function isWatchActive () {
   return false
 }
 
-module.exports = {
+export {
   saveChannelData,
   getChannelData,
   isWatchActive
